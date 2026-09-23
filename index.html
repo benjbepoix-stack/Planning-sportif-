@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#101512">
+<title>Ma semaine d'entraînement</title>
+<style>
+:root{
+  --bg:#0d120f;--card:#141c17;--card2:#19241d;--text:#f2f5f3;
+  --muted:#94a69b;--line:#2b3b31;--accent:#b9ff32;--danger:#ff756d
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif}
+body{padding-bottom:32px}
+header{max-width:900px;margin:auto;padding:28px 18px 18px}
+.kicker{font-size:14px;font-weight:850;letter-spacing:1.5px;color:var(--accent)}
+h1{font-size:34px;line-height:1.04;letter-spacing:-.8px;margin:8px 0 10px}
+.subtitle{font-size:16px;line-height:1.45;color:var(--muted)}
+main{max-width:900px;margin:auto;padding:0 14px}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+button{
+  border:1px solid var(--line);background:var(--card);color:var(--text);
+  border-radius:12px;padding:11px 13px;font:inherit;font-size:14px;font-weight:750
+}
+button.primary{background:var(--accent);border-color:var(--accent);color:#101512}
+button:active{transform:scale(.98)}
+.weekbar{
+  display:grid;grid-template-columns:44px 1fr 44px;align-items:center;
+  background:var(--card);border:1px solid var(--line);border-radius:16px;
+  padding:8px;margin-bottom:12px
+}
+.weekbar button{padding:9px 0}
+.week-label{text-align:center;font-size:13px;line-height:1.35;color:var(--muted);font-weight:700}
+.days{display:grid;gap:12px}
+.day-card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:15px}
+.day-card.today{border-color:#638f2a;box-shadow:0 0 0 1px #638f2a33 inset}
+.day-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.day-name{font-size:21px;font-weight:850}
+.date{font-size:13px;color:var(--muted);margin-top:3px}
+.today-badge{font-size:11px;background:var(--accent);color:#101512;border-radius:999px;padding:5px 8px;font-weight:850}
+.weather-box{
+  display:flex;align-items:center;gap:12px;background:var(--card2);
+  border-radius:14px;padding:12px;margin-bottom:11px;min-height:68px
+}
+.weather-icon{font-size:30px;width:36px;text-align:center}
+.weather-title{font-size:14px;font-weight:750}
+.weather-details{font-size:12px;color:var(--muted);margin-top:4px;line-height:1.35}
+select{
+  display:block;width:100%;min-height:50px;border:1px solid #33463a;
+  border-radius:12px;background:#0e1511;color:var(--text);
+  padding:10px 12px;font:inherit;font-size:16px;font-weight:650
+}
+select:focus{outline:2px solid var(--accent);outline-offset:1px}
+.note{font-size:12px;color:var(--muted);line-height:1.45;padding:13px 2px}
+.modal{position:fixed;inset:0;background:#000b;display:none;align-items:flex-end;z-index:30}
+.modal.open{display:flex}
+.sheet{width:100%;max-height:84vh;overflow:auto;background:#121a15;border-radius:20px 20px 0 0;padding:18px}
+.sheet h2{margin:0 0 15px;font-size:21px}
+.item{display:flex;align-items:center;justify-content:space-between;gap:10px;border-bottom:1px solid var(--line);padding:11px 0}
+.item span{min-width:0;word-break:break-word}
+.item button{padding:7px 9px;color:var(--danger)}
+.field input{
+  width:100%;margin-top:14px;padding:12px;border-radius:11px;
+  border:1px solid var(--line);background:#0e1511;color:var(--text);font:inherit;font-size:16px
+}
+.sheet-actions{display:flex;gap:8px;margin-top:12px}
+.sheet-actions button{flex:1}
+.empty{padding:16px 0;color:var(--muted)}
+@media(min-width:680px){.days{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="kicker">PLANNING SPORTIF</div>
+  <h1>Ma semaine d'entraînement</h1>
+  <div class="subtitle">Besançon · choisis ta séance pour chaque jour et consulte la météo.</div>
+</header>
+
+<main>
+  <div class="controls">
+    <button class="primary" onclick="goCurrentWeek()">Aujourd'hui</button>
+    <button onclick="openManager()">⚙️ Mes entraînements</button>
+    <button onclick="loadWeather()">↻ Météo</button>
+  </div>
+
+  <div class="weekbar">
+    <button onclick="moveWeek(-1)" aria-label="Semaine précédente">‹</button>
+    <div id="weekLabel" class="week-label"></div>
+    <button onclick="moveWeek(1)" aria-label="Semaine suivante">›</button>
+  </div>
+
+  <section id="days" class="days"></section>
+
+  <div class="note">
+    Tes entraînements sont enregistrés automatiquement sur cet appareil.
+    La météo est basée sur Besançon. Les prévisions sont fournies par Open-Meteo.
+  </div>
+</main>
+
+<div id="modal" class="modal" onclick="if(event.target===this) closeManager()">
+  <div class="sheet">
+    <h2>Mes entraînements</h2>
+    <div id="trainingList"></div>
+    <div class="field">
+      <input id="newTraining" placeholder="Ex. Trail vallonné 1h30">
+    </div>
+    <div class="sheet-actions">
+      <button onclick="closeManager()">Fermer</button>
+      <button class="primary" onclick="addTraining()">Ajouter</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const DAYS=["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
+const DEFAULT_TRAININGS=[
+  "Repos","Footing facile","Sortie longue","Fractionné","Seuil / tempo",
+  "Trail","Vélo endurance","Vélo intensif","Ski de fond",
+  "Renforcement musculaire","Mobilité / récupération"
+];
+
+const WMO={
+  0:["☀️","Ciel dégagé"],1:["🌤️","Principalement dégagé"],2:["⛅","Partiellement nuageux"],3:["☁️","Couvert"],
+  45:["🌫️","Brouillard"],48:["🌫️","Brouillard givrant"],
+  51:["🌦️","Bruine légère"],53:["🌦️","Bruine"],55:["🌧️","Bruine forte"],
+  56:["🌧️","Bruine verglaçante"],57:["🌧️","Bruine verglaçante"],
+  61:["🌦️","Pluie légère"],63:["🌧️","Pluie"],65:["🌧️","Forte pluie"],
+  66:["🌧️","Pluie verglaçante"],67:["🌧️","Forte pluie verglaçante"],
+  71:["🌨️","Neige légère"],73:["🌨️","Neige"],75:["❄️","Forte neige"],77:["❄️","Grains de neige"],
+  80:["🌦️","Averses"],81:["🌧️","Averses fortes"],82:["⛈️","Fortes averses"],
+  85:["🌨️","Averses de neige"],86:["🌨️","Fortes averses de neige"],
+  95:["⛈️","Orage"],96:["⛈️","Orage avec grêle"],99:["⛈️","Orage avec forte grêle"]
+};
+
+const BESANCON={lat:47.2378,lon:6.0241,name:"Besançon"};
+let trainings=readJSON("sport_trainings",DEFAULT_TRAININGS);
+let plans=readJSON("sport_plans",{});
+let weekStart=monday(new Date());
+let weatherData=null;
+
+function readJSON(k,fallback){
+  try{const v=localStorage.getItem(k);return v?JSON.parse(v):fallback}catch(e){return fallback}
+}
+function save(){
+  localStorage.setItem("sport_trainings",JSON.stringify(trainings));
+  localStorage.setItem("sport_plans",JSON.stringify(plans));
+}
+function dateKey(d){
+  const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,"0"),day=String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+function parseDateKey(s){return new Date(s+"T12:00:00")}
+function monday(d){
+  const x=new Date(d);x.setHours(12,0,0,0);
+  x.setDate(x.getDate()-((x.getDay()+6)%7));return x;
+}
+function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x}
+function formatDate(d){
+  return d.toLocaleDateString("fr-FR",{day:"2-digit",month:"long"});
+}
+function esc(s){
+  return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function render(){
+  const end=addDays(weekStart,6);
+  document.getElementById("weekLabel").innerHTML=
+    `${formatDate(weekStart)}<br>→ ${formatDate(end)}`;
+  const todayKey=dateKey(new Date());
+  const container=document.getElementById("days");
+  container.innerHTML="";
+  for(let i=0;i<7;i++){
+    const d=addDays(weekStart,i),k=dateKey(d);
+    const selected=plans[k]||trainings[0]||"Repos";
+    const options=trainings.map(t=>`<option value="${esc(t)}"${t===selected?" selected":""}>${esc(t)}</option>`).join("");
+    container.insertAdjacentHTML("beforeend",`
+      <article class="day-card${k===todayKey?" today":""}">
+        <div class="day-head">
+          <div><div class="day-name">${DAYS[i]}</div><div class="date">${formatDate(d)}</div></div>
+          ${k===todayKey?'<span class="today-badge">AUJOURD’HUI</span>':""}
+        </div>
+        <div class="weather-box" id="weather-${k}">
+          <div class="weather-icon">⏳</div>
+          <div><div class="weather-title">Chargement météo…</div><div class="weather-details">Besançon</div></div>
+        </div>
+        <select aria-label="Entraînement ${DAYS[i]}" onchange="setPlan('${k}',this.value)">
+          ${options}
+        </select>
+      </article>
+    `);
+  }
+  applyWeatherToVisibleDays();
+}
+function setPlan(k,v){plans[k]=v;save()}
+function moveWeek(n){weekStart=addDays(weekStart,7*n);render()}
+function goCurrentWeek(){weekStart=monday(new Date());render()}
+function openManager(){renderManager();document.getElementById("modal").classList.add("open")}
+function closeManager(){document.getElementById("modal").classList.remove("open")}
+function renderManager(){
+  const list=document.getElementById("trainingList");
+  if(!trainings.length){list.innerHTML='<div class="empty">Aucun entraînement.</div>';return}
+  list.innerHTML=trainings.map((t,i)=>`
+    <div class="item"><span>${esc(t)}</span><button onclick="removeTraining(${i})">Supprimer</button></div>
+  `).join("");
+}
+function addTraining(){
+  const input=document.getElementById("newTraining");
+  const value=input.value.trim();
+  if(!value)return;
+  if(!trainings.includes(value))trainings.push(value);
+  input.value="";save();renderManager();render();
+}
+function removeTraining(i){
+  if(trainings.length<=1)return;
+  const removed=trainings[i];
+  trainings.splice(i,1);
+  Object.keys(plans).forEach(k=>{if(plans[k]===removed)plans[k]=trainings[0]});
+  save();renderManager();render();
+}
+
+function applyWeatherToVisibleDays(){
+  if(!weatherData)return;
+  for(let i=0;i<7;i++){
+    const d=addDays(weekStart,i),k=dateKey(d);
+    const box=document.getElementById("weather-"+k);
+    if(!box)continue;
+    const idx=weatherData.time.indexOf(k);
+    if(idx===-1){
+      box.innerHTML='<div class="weather-icon">—</div><div><div class="weather-title">Prévision non disponible</div><div class="weather-details">Cette date est hors de la fenêtre météo disponible.</div></div>';
+      continue;
+    }
+    const code=weatherData.weather_code[idx];
+    const info=WMO[code]||["🌡️","Conditions météo"];
+    const min=Math.round(weatherData.temperature_2m_min[idx]);
+    const max=Math.round(weatherData.temperature_2m_max[idx]);
+    const wind=Math.round(weatherData.wind_speed_10m_max[idx]);
+    box.innerHTML=`
+      <div class="weather-icon">${info[0]}</div>
+      <div>
+        <div class="weather-title">${info[1]}</div>
+        <div class="weather-details">${min}° / ${max}°C · vent max ${wind} km/h · Besançon</div>
+      </div>`;
+  }
+}
+
+async function loadWeather(){
+  const start=addDays(weekStart,-7);
+  const end=addDays(weekStart,13);
+  const url=new URL("https://api.open-meteo.com/v1/forecast");
+  url.searchParams.set("latitude",BESANCON.lat);
+  url.searchParams.set("longitude",BESANCON.lon);
+  url.searchParams.set("daily","weather_code,temperature_2m_min,temperature_2m_max,wind_speed_10m_max");
+  url.searchParams.set("timezone","Europe/Paris");
+  url.searchParams.set("wind_speed_unit","kmh");
+  url.searchParams.set("start_date",dateKey(start));
+  url.searchParams.set("end_date",dateKey(end));
+  try{
+    document.querySelectorAll(".weather-title").forEach(x=>{if(x.textContent.includes("Prévision")||x.textContent.includes("Chargement"))x.textContent="Mise à jour météo…"});
+    const response=await fetch(url.toString(),{cache:"no-store"});
+    if(!response.ok)throw new Error("HTTP "+response.status);
+    const data=await response.json();
+    if(data.error)throw new Error(data.reason||"API météo");
+    weatherData=data.daily;
+    applyWeatherToVisibleDays();
+  }catch(error){
+    for(let i=0;i<7;i++){
+      const d=addDays(weekStart,i),box=document.getElementById("weather-"+dateKey(d));
+      if(box)box.innerHTML='<div class="weather-icon">⚠️</div><div><div class="weather-title">Météo indisponible</div><div class="weather-details">Vérifie la connexion Internet puis touche « Météo ».</div></div>';
+    }
+  }
+}
+
+render();
+loadWeather();
+</script>
+</body>
+</html>
